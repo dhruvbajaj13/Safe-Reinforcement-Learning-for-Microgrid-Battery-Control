@@ -409,10 +409,3 @@ It demonstrates concepts from:
 
 ---
 
-## ⭐ Acknowledgements
-
-This project was inspired by:
-
-[Webbah/safe-reinforcement-learing-for-microgrid-control](https://github.com/Webbah/safe-reinforcement-learing-for-microgrid-control)
-
-The implementation simplifies the original research setup to make the core Safe RL concept easier to understand, run, and demonstrate.
