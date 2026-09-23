@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Safe RL Microgrid — Project Dashboard</title>
+<style>
+:root{
+  --bg:#f6f8fb; --card:#ffffff; --text:#1a2233; --muted:#5b6472;
+  --accent:#2f6fed; --border:#e3e7ef; --ok:#1a9d5c; --warn:#e0472c;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#10141c; --card:#181f2b; --text:#e8ecf3; --muted:#9aa4b5; --border:#2a3241; }
+}
+:root[data-theme="dark"]{ --bg:#10141c; --card:#181f2b; --text:#e8ecf3; --muted:#9aa4b5; --border:#2a3241; }
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;line-height:1.5}
+.wrap{max-width:920px;margin:0 auto;padding:26px 18px 60px}
+h1{font-size:1.45rem;margin:0 0 4px}
+.sub{color:var(--muted);font-size:.9rem;margin:0 0 20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:18px}
+h2{font-size:1.02rem;margin:0 0 8px}
+p{font-size:.9rem;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:12px 0}
+.stat{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:9px 11px}
+.stat b{display:block;font-size:1.1rem}
+.stat span{font-size:.72rem;color:var(--muted)}
+.safe b{color:var(--ok)} .unsafe b{color:var(--warn)}
+.chartbox{border:1px solid var(--border);border-radius:10px;padding:8px;background:var(--bg)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0}
+button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:9px 14px;font-size:.85rem;cursor:pointer}
+button.secondary{background:var(--border);color:var(--text)}
+button.big{font-size:.95rem;padding:12px 18px;font-weight:600}
+input[type=range]{flex:1;min-width:140px}
+.badge{font-size:.72rem;padding:3px 8px;border-radius:20px;background:var(--border)}
+.badge.on{background:var(--ok);color:#fff}
+.badge.off{background:var(--warn);color:#fff}
+.legend{display:flex;gap:14px;font-size:.78rem;color:var(--muted);margin-top:6px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+.note{font-size:.78rem;background:var(--bg);border-left:3px solid var(--accent);padding:8px 10px;border-radius:6px;margin-top:8px}
+footer{font-size:.78rem;color:var(--muted);text-align:center;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>⚡ Safe RL for Microgrid Battery Control</h1>
+  <p class="sub">B.Tech project dashboard — RL agent + safety shield managing a solar+battery home microgrid.</p>
+
+  <div class="card">
+    <h2>Fixed result: Safe RL vs an unprotected policy (7-day unseen test week)</h2>
+    <p>This chart is a <b>fixed, already-computed result</b> from the real Python training run — it will not change when you touch anything on this page. The interactive part is in the next section below.</p>
+    <div class="stats" id="statBoxes"></div>
+    <div class="chartbox"><div id="socChart"></div></div>
+    <div class="legend"><span><span class="dot" style="background:#1a9d5c"></span>Safe RL agent (shield ON)</span><span><span class="dot" style="background:#e0472c"></span>Random/naive policy (shield OFF)</span></div>
+    <div class="chartbox" style="margin-top:14px"><div id="costChart"></div></div>
+    <p style="margin-top:6px">Top chart: battery SOC (dashed lines = safety limits, 10%–95%). Bottom chart: cumulative electricity bought from the grid.</p>
+  </div>
+
+  <div class="card">
+    <h2>Live simulator — this one you actually control</h2>
+    <p>A simplified JavaScript copy of the environment + safety shield, running entirely in your browser (no server needed). Use the big button first — it's the easiest way to demo this.</p>
+    <div class="row">
+      <button id="autoBtn" class="big">▶ Run full week automatically</button>
+      <button id="resetBtn" class="secondary">Reset</button>
+      <span>Safety shield: <span id="shieldBadge" class="badge on">ON</span></span>
+      <button id="toggleShield" class="secondary">Toggle shield</button>
+    </div>
+    <div class="row">
+      <span style="width:150px">Manual action:</span>
+      <input type="range" id="actionSlider" min="-100" max="100" value="70">
+      <span id="actionVal">0.70</span>
+      <button id="stepBtn">Step ▶ (apply once)</button>
+    </div>
+    <div class="note">Tip for demo: click <b>"Toggle shield" → OFF</b>, then <b>"Run full week automatically"</b> — you'll see the battery line crash through the red dashed safety limits. Then Reset, keep shield ON, run again — it stays inside the lines. That contrast IS the project.</div>
+    <div class="stats" id="liveStats"></div>
+    <div class="chartbox" style="margin-top:10px"><div id="liveChart"></div></div>
+  </div>
+
+  <footer>Full trainable Python project (environment, shield, training, evaluation scripts) is provided alongside this dashboard.</footer>
+</div>
+
+<script>
+const DATA = __DEMO_DATA__;
+const W = 600, H = 200;
+
+// Dependency-free SVG line chart (no CDN, nothing to fail to load).
+function svgChart(elId, series, yMin, yMax, guides){
+  const poly = s => {
+    const n = s.data.length;
+    if(n < 2) return '';
+    const stepX = W/(n-1);
+    const pts = s.data.map((v,i)=>{
+      const x = i*stepX;
+      const y = H - ((v-yMin)/(yMax-yMin))*H;
+      return x.toFixed(1)+','+y.toFixed(1);
+    }).join(' ');
+    return `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2.5"/>`;
+  };
+  let guideLines = '';
+  (guides||[]).forEach(g=>{
+    const y = H - ((g-yMin)/(yMax-yMin))*H;
+    guideLines += `<line x1="0" y1="${y.toFixed(1)}" x2="${W}" y2="${y.toFixed(1)}" stroke="#e0472c" stroke-width="1" stroke-dasharray="5,4"/>`;
+  });
+  const lines = series.map(poly).join('');
+  document.getElementById(elId).innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">${guideLines}${lines}</svg>`;
+}
+
+function renderPrecomputed(){
+  const s = DATA.safe, u = DATA.unsafe;
+  svgChart('socChart', [
+    {data:s.soc, color:'#1a9d5c'},
+    {data:u.soc, color:'#e0472c'}
+  ], 0, 1, [0.10, 0.95]);
+
+  const allCosts = s.cum_cost.concat(u.cum_cost);
+  const costMax = Math.max(...allCosts) * 1.05;
+  svgChart('costChart', [
+    {data:s.cum_cost, color:'#1a9d5c'},
+    {data:u.cum_cost, color:'#e0472c'}
+  ], 0, costMax, []);
+
+  const sViol = s.violation.reduce((a,b)=>a+b,0), uViol = u.violation.reduce((a,b)=>a+b,0);
+  const sClip = s.clipped.reduce((a,b)=>a+b,0);
+  const sCost = s.cum_cost[s.cum_cost.length-1], uCost = u.cum_cost[u.cum_cost.length-1];
+  document.getElementById('statBoxes').innerHTML = `
+    <div class="stat safe"><b>${sCost.toFixed(0)}</b><span>Safe RL — total grid cost</span></div>
+    <div class="stat unsafe"><b>${uCost.toFixed(0)}</b><span>Random policy — total grid cost</span></div>
+    <div class="stat safe"><b>${sViol}</b><span>Safe RL — SOC violations</span></div>
+    <div class="stat unsafe"><b>${uViol}</b><span>Random policy — SOC violations</span></div>
+    <div class="stat"><b>${sClip}</b><span>Times shield corrected an action</span></div>`;
+}
+renderPrecomputed();
+
+// ---- Live in-browser simulator (JS port of microgrid_env.py + safety_shield.py) ----
+const cap=10, maxP=3, eff=0.95, socMin=0.10, socMax=0.95, price=8;
+let soc=0.5, t=0, hist=[soc], shieldOn=true, autoTimer=null;
+
+function solarAt(h){ h=h%24; if(h<6||h>19) return 0; return Math.max(0,5*Math.exp(-((h-13)**2)/(2*3*3))); }
+function demandAt(h){ h=h%24; return 1+2*Math.exp(-((h-8)**2)/(2*1.5*1.5))+3*Math.exp(-((h-20)**2)/(2*2*2)); }
+
+function shieldAction(a){
+  const pw=a*maxP;
+  const d = pw>=0 ? (pw*eff)/cap : (pw/eff)/cap;
+  const pred = soc+d;
+  if(pred>=socMin && pred<=socMax) return {a, clipped:false};
+  const target = pred>socMax?socMax:socMin;
+  const need = target-soc;
+  let p2 = need>=0 ? (need*cap)/eff : (need*cap*eff);
+  let a2 = Math.max(-1,Math.min(1, p2/maxP));
+  return {a:a2, clipped:true};
+}
+
+function stepSim(rawAction){
+  let a=rawAction, clipped=false;
+  if(shieldOn){ const r=shieldAction(rawAction); a=r.a; clipped=r.clipped; }
+  const pw=a*maxP;
+  const d = pw>=0 ? (pw*eff)/cap : (pw/eff)/cap;
+  let next = soc+d;
+  const violation = next<socMin || next>socMax;
+  next = Math.max(0,Math.min(1,next));
+  const hour = t%24;
+  const net = demandAt(hour)-solarAt(hour)+pw;
+  const grid = Math.max(net,0);
+  const cost = grid*price;
+  soc=next; t++;
+  hist.push(soc);
+  if(hist.length>200) hist.shift();
+  return {clipped, violation, cost, grid};
+}
+
+function drawLive(){
+  svgChart('liveChart', [{data:hist, color:'#2f6fed'}], 0, 1, [0.10, 0.95]);
+}
+function updateLiveStats(last){
+  document.getElementById('liveStats').innerHTML = `
+    <div class="stat"><b>${(soc*100).toFixed(1)}%</b><span>Battery SOC</span></div>
+    <div class="stat"><b>${last?last.grid.toFixed(2):'0.00'}</b><span>Grid power drawn (kW)</span></div>
+    <div class="stat"><b>${last&&last.clipped?'Yes':'No'}</b><span>Shield intervened last step</span></div>`;
+}
+
+document.getElementById('actionSlider').addEventListener('input', e=>{
+  document.getElementById('actionVal').textContent = (e.target.value/100).toFixed(2);
+});
+document.getElementById('stepBtn').addEventListener('click', ()=>{
+  const a = document.getElementById('actionSlider').value/100;
+  const r = stepSim(a); drawLive(); updateLiveStats(r);
+});
+document.getElementById('toggleShield').addEventListener('click', ()=>{
+  shieldOn=!shieldOn;
+  const b=document.getElementById('shieldBadge');
+  b.textContent=shieldOn?'ON':'OFF'; b.className='badge '+(shieldOn?'on':'off');
+});
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  soc=0.5; t=0; hist=[soc]; clearInterval(autoTimer); autoTimer=null;
+  document.getElementById('autoBtn').textContent='▶ Run full week automatically';
+  drawLive(); updateLiveStats(null);
+});
+document.getElementById('autoBtn').addEventListener('click', ()=>{
+  if(autoTimer){ clearInterval(autoTimer); autoTimer=null; document.getElementById('autoBtn').textContent='▶ Run full week automatically'; return; }
+  document.getElementById('autoBtn').textContent='⏸ Pause';
+  autoTimer=setInterval(()=>{
+    const hour=t%24;
+    // Random exploratory action -- deliberately naive, to show what an
+    // untrained agent could do without protection (this is the honest
+    // "before training" case the safety shield exists for).
+    const a = Math.random()*2-1;
+    const r=stepSim(a); drawLive(); updateLiveStats(r);
+    if(t>=167){ clearInterval(autoTimer); autoTimer=null; document.getElementById('autoBtn').textContent='▶ Run full week automatically'; }
+  }, 90);
+});
+drawLive();
+updateLiveStats(null);
+</script>
+</body>
+</html>
