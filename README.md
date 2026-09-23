@@ -1,102 +1,418 @@
-# Safe Reinforcement Learning for Microgrid Battery Control (Easy Version)
+# 🔋 Safe Reinforcement Learning for Microgrid Battery Control
 
-A beginner-friendly B.Tech project inspired by
-[Webbah/safe-reinforcement-learing-for-microgrid-control](https://github.com/Webbah/safe-reinforcement-learing-for-microgrid-control),
-rebuilt with a simple pure-Python simulation instead of OpenModelica/FMU, and
-a rule-based safety shield instead of polytope/feasible-set math.
+A beginner-friendly project that applies **Reinforcement Learning (RL)** to battery energy management in a microgrid.
 
-## Idea
+The project compares a **Safe RL agent** with a **Plain RL agent** and demonstrates how a simple rule-based **Safety Shield** can prevent unsafe battery actions while the RL agent learns to reduce electricity usage from the grid.
 
-An RL agent decides how much to charge/discharge a home battery every hour,
-to minimize electricity bought from the grid, given solar generation and
-household demand. A **safety shield** makes sure the agent's action can never
-over-charge or over-discharge the battery, no matter what the RL agent
-outputs.
+Inspired by the research project [Webbah/safe-reinforcement-learing-for-microgrid-control](https://github.com/Webbah/safe-reinforcement-learing-for-microgrid-control), this implementation replaces the complex OpenModelica/FMUs and mathematical feasible-set calculations with a lightweight **pure-Python simulation**.
 
-Two agents are trained and compared:
-- **Safe RL** — safety shield ON (actions are corrected before they execute)
-- **Plain RL** — safety shield OFF (can violate battery limits, gets penalized)
+---
 
-This safe-vs-plain comparison is the core result of the project.
+## 🚀 Project Overview
 
-## Files
+In a home microgrid, electricity can come from:
 
-| File | What it does |
-|---|---|
-| `data_utils.py` | Generates a synthetic solar + household demand profile (no dataset download needed) |
-| `safety_shield.py` | The rule-based safety layer — clips unsafe actions before they reach the battery |
-| `microgrid_env.py` | The custom Gymnasium environment (battery + solar + demand + grid) |
-| `train.py` | Trains the safe and unsafe PPO agents |
-| `evaluate.py` | Runs both trained agents on unseen test data, plots comparison, saves a summary table |
-| `dashboard.py` | Optional Streamlit demo for your viva |
-<<<<<<< HEAD
-=======
-| `frontend/dashboard.html` | Standalone HTML+JS dashboard (no server, no CDN dependency) — double-click to open in any browser. Shows the safe-vs-unsafe comparison and a live in-browser simulator you can control. |
-| `frontend/build_dashboard.py` | Regenerates `frontend/dashboard.html` with fresh results after you retrain |
->>>>>>> bcf19ab7 (Commited)
+* ☀️ Solar generation
+* 🔌 The main electricity grid
+* 🔋 A battery storage system
 
-## Setup
+The RL agent decides whether the battery should:
+
+* Charge
+* Discharge
+* Stay idle
+
+The objective is to reduce the amount of electricity purchased from the grid while maintaining safe battery operation.
+
+### The key idea
+
+The project trains and compares two agents:
+
+| Agent        | Safety Shield | Unsafe Actions                     |
+| ------------ | ------------- | ---------------------------------- |
+| **Safe RL**  | ✅ Enabled     | Corrected before execution         |
+| **Plain RL** | ❌ Disabled    | Penalized when limits are violated |
+
+The **Safety Shield** checks the proposed RL action before it reaches the battery and clips actions that would cause the battery's State of Charge (SOC) to exceed its safe limits.
+
+---
+
+## 🧠 How It Works
+
+```text
+                 ☀️ Solar
+                    │
+                    ▼
+              ┌─────────────┐
+              │ Microgrid   │
+              │ Environment │
+              └──────┬──────┘
+                     │
+                     ▼
+               ┌───────────┐
+               │ RL Agent  │
+               │   PPO     │
+               └─────┬─────┘
+                     │
+              Proposed Action
+                     │
+                     ▼
+             ┌──────────────┐
+             │   Safety     │
+             │    Shield    │
+             └──────┬───────┘
+                    │
+          Safe / Corrected Action
+                    │
+                    ▼
+             ┌─────────────┐
+             │   Battery   │
+             │    SOC      │
+             └──────┬──────┘
+                    │
+                    ▼
+                 🔌 Grid
+```
+
+At every time step:
+
+1. Solar generation and household demand are observed.
+2. The PPO agent proposes a battery action.
+3. The Safety Shield checks whether the action is safe.
+4. Unsafe actions are clipped to the allowable range.
+5. The battery state is updated.
+6. A reward is calculated based on grid usage and safety violations.
+
+---
+
+## ✨ Key Features
+
+* 🤖 **PPO-based Reinforcement Learning**
+* 🔋 Battery charge/discharge control
+* ☀️ Synthetic solar generation
+* 🏠 Synthetic household electricity demand
+* 🛡️ Rule-based Safety Shield
+* 📊 Safe RL vs Plain RL comparison
+* 📈 Evaluation plots and summary CSV
+* 🌐 Optional Streamlit dashboard
+* 💻 Standalone offline HTML dashboard
+* 🧪 No external dataset required
+
+---
+
+## 📁 Project Structure
+
+```text
+Safe-Reinforcement-Learning-for-Microgrid-Battery-Control/
+│
+├── data_utils.py
+├── safety_shield.py
+├── microgrid_env.py
+├── train.py
+├── evaluate.py
+├── dashboard.py
+├── requirements.txt
+├── README.md
+│
+├── frontend/
+│   ├── dashboard.html
+│   └── build_dashboard.py
+│
+└── results/
+    ├── comparison.png
+    └── summary.csv
+```
+
+### File Description
+
+| File                          | Description                                                        |
+| ----------------------------- | ------------------------------------------------------------------ |
+| `data_utils.py`               | Generates synthetic solar generation and household demand profiles |
+| `safety_shield.py`            | Implements the rule-based battery safety layer                     |
+| `microgrid_env.py`            | Custom Gymnasium environment for the microgrid                     |
+| `train.py`                    | Trains Safe RL and Plain RL PPO agents                             |
+| `evaluate.py`                 | Evaluates trained agents and generates comparison results          |
+| `dashboard.py`                | Optional Streamlit dashboard for demonstration                     |
+| `frontend/dashboard.html`     | Standalone browser-based dashboard                                 |
+| `frontend/build_dashboard.py` | Regenerates the HTML dashboard using latest results                |
+| `requirements.txt`            | Python dependencies required to run the project                    |
+
+---
+
+## 🛠️ Tech Stack
+
+**Programming Language**
+
+* Python
+
+**Machine Learning / RL**
+
+* Stable-Baselines3
+* PPO (Proximal Policy Optimization)
+
+**Environment**
+
+* Gymnasium
+* Custom Python-based microgrid simulator
+
+**Data & Visualization**
+
+* NumPy
+* Pandas
+* Matplotlib
+
+**Dashboard**
+
+* Streamlit
+* HTML
+* JavaScript
+
+---
+
+## ⚙️ Installation
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/dhruvbajaj13/Safe-Reinforcement-Learning-for-Microgrid-Battery-Control.git
+
+cd Safe-Reinforcement-Learning-for-Microgrid-Battery-Control
+```
+
+### 2. Create a virtual environment
+
+#### macOS / Linux
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+#### Windows
 
 ```bash
 python -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
+venv\Scripts\activate
+```
+
+### 3. Install dependencies
+
+```bash
 pip install -r requirements.txt
 ```
 
-## Run
+---
+
+## ▶️ Running the Project
+
+### Step 1 — Train the Agents
+
+For a quick test:
 
 ```bash
-# 1. Train both agents (start small to iterate fast, then increase for final results)
 python train.py --timesteps 20000
-
-# 2. Evaluate + generate comparison plots
-python evaluate.py
-# -> results/comparison.png
-# -> results/summary.csv
-
-<<<<<<< HEAD
-# 3. (Optional) interactive demo for your viva
-streamlit run dashboard.py
-=======
-# 3. (Optional) interactive Streamlit demo for your viva
-streamlit run dashboard.py
-
-# 4. (Optional) standalone HTML dashboard -- no server needed, works offline
-python frontend/build_dashboard.py
-# then just double-click frontend/dashboard.html, or open it in any browser
->>>>>>> bcf19ab7 (Commited)
 ```
 
-## What to expect / tune
+For more meaningful results:
 
-- With very few timesteps (e.g. 2,000, used only to smoke-test the pipeline)
-  the agents won't have learned much yet — the *safety shield still works
-  correctly* even from a random/untrained policy, since it's rule-based and
-  independent of learning. This is a good thing to point out in your report:
-  safety doesn't depend on how well the agent has learned.
-- For real results, train with `--timesteps 100000` or more (increase
-  `--num-days` too, so the agent sees more varied days). Training time
-  depends on your CPU; a few minutes to ~30 minutes is typical for this
-  problem size.
-- Try changing `grid_price_per_kwh`, `unsafe_penalty`, or the battery's
-  `capacity_kwh` / `max_power_kw` in `microgrid_env.py` (`EnvConfig`,
-  `BatteryParams`) to see how the agent's behavior changes — good material
-  for a "sensitivity analysis" section in your report.
+```bash
+python train.py --timesteps 100000
+```
 
-## Extending it (stretch goals)
+Training produces the trained RL models used for evaluation.
 
-- Swap `generate_synthetic_profile()` in `data_utils.py` for a real household
-  load + solar dataset (same DataFrame columns: `solar_kw`, `demand_kw`).
-- Add a second battery, or an EV charging load, to the environment.
-- Add a simple day-ahead solar/demand forecast as extra observation features.
-- Try DDPG or SAC from Stable-Baselines3 instead of PPO and compare.
+---
 
-## Mapping back to the original research repo
+### Step 2 — Evaluate the Agents
 
-| Original repo (hard) | This project (easy) |
-|---|---|
-| OpenModelica + FMU (pyfmi) circuit simulation | `microgrid_env.py` — plain Python battery/solar/demand model |
-| `openmodelica_microgrid_gym` (OMG) Gym wrapper | `MicrogridEnv(gymnasium.Env)` |
-| Polytope / feasible-set safeguard (`safeguard_validation.py`) | `safety_shield.py` — SOC bounds-checking |
-| Stable-Baselines3 agent | Same library — PPO on the simpler environment |
-| Optuna + MongoDB experiment tracking | Skipped — CSV summary is enough for a course project |
+```bash
+python evaluate.py
+```
+
+This generates:
+
+```text
+results/comparison.png
+results/summary.csv
+```
+
+The evaluation compares the behavior and performance of the **Safe RL** and **Plain RL** agents on test data.
+
+---
+
+### Step 3 — Streamlit Dashboard
+
+Run:
+
+```bash
+streamlit run dashboard.py
+```
+
+The dashboard can be used to demonstrate the project during a **viva or project presentation**.
+
+---
+
+### Step 4 — Standalone HTML Dashboard
+
+Generate the latest dashboard:
+
+```bash
+python frontend/build_dashboard.py
+```
+
+Then open:
+
+```text
+frontend/dashboard.html
+```
+
+The dashboard works directly in a browser and does not require a server or external CDN.
+
+---
+
+## 📊 Experimental Comparison
+
+The main experiment compares:
+
+### Safe RL
+
+```text
+RL Action
+    ↓
+Safety Shield
+    ↓
+Corrected Safe Action
+    ↓
+Battery
+```
+
+### Plain RL
+
+```text
+RL Action
+    ↓
+Battery
+```
+
+The comparison can be used to study:
+
+* Grid electricity consumption
+* Battery SOC behavior
+* Unsafe actions
+* Reward obtained by the agents
+* Effect of safety constraints
+
+---
+
+## 🛡️ Why Use a Safety Shield?
+
+A reinforcement learning agent may initially produce actions that are not physically valid.
+
+For example:
+
+```text
+Battery SOC = 95%
+
+RL Agent Action → Charge
+
+Without Shield:
+SOC → beyond allowed limit ❌
+
+With Shield:
+Action is reduced / clipped ✅
+SOC remains within safe range
+```
+
+The important property of the safety layer is that it operates **independently of how well the RL policy has learned**.
+
+This means battery safety can still be enforced even when the agent is poorly trained or produces unexpected actions.
+
+---
+
+## 📈 Experiment Parameters
+
+Several parameters can be modified to study system behavior:
+
+```text
+grid_price_per_kwh
+unsafe_penalty
+battery capacity
+maximum battery power
+number of training timesteps
+number of simulated days
+```
+
+Changing these parameters can be useful for a **sensitivity analysis** in a B.Tech report.
+
+---
+
+## 🧪 Synthetic Data
+
+The project does not require downloading an external dataset.
+
+`data_utils.py` generates synthetic profiles containing:
+
+```text
+solar_kw
+demand_kw
+```
+
+This keeps the project lightweight and makes experimentation easier.
+
+A real-world solar/load dataset can be integrated later using the same data format.
+
+---
+
+## 🔬 Original Research vs This Implementation
+
+| Original Research Project         | This Implementation                       |
+| --------------------------------- | ----------------------------------------- |
+| OpenModelica + FMU simulation     | Pure Python simulation                    |
+| Complex microgrid model           | Simplified battery + solar + demand model |
+| OpenModelica Gym integration      | Custom Gymnasium environment              |
+| Polytope / feasible-set safeguard | Rule-based Safety Shield                  |
+| PPO reinforcement learning        | PPO reinforcement learning                |
+| Optuna + MongoDB experiments      | CSV-based experiment results              |
+
+The goal is not to reproduce the complete research system, but to provide a **simplified and understandable implementation of the core safe-RL concept**.
+
+---
+
+## 🚀 Future Improvements
+
+Possible extensions include:
+
+* Replace synthetic profiles with real solar/load datasets
+* Add EV charging to the microgrid
+* Support multiple batteries
+* Add solar/load forecasting
+* Compare PPO with SAC or DDPG
+* Add more advanced safety constraints
+* Introduce real-time energy pricing
+* Improve the dashboard with additional experiment visualizations
+
+---
+
+## 🎓 Academic Context
+
+This project is designed as a **beginner-friendly B.Tech implementation** of Safe Reinforcement Learning for energy management.
+
+It demonstrates concepts from:
+
+* Reinforcement Learning
+* PPO
+* Energy Storage Systems
+* Microgrids
+* Constraint Handling
+* Safe AI
+* Simulation
+
+---
+
+## ⭐ Acknowledgements
+
+This project was inspired by:
+
+[Webbah/safe-reinforcement-learing-for-microgrid-control](https://github.com/Webbah/safe-reinforcement-learing-for-microgrid-control)
+
+The implementation simplifies the original research setup to make the core Safe RL concept easier to understand, run, and demonstrate.
