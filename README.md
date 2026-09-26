@@ -4,8 +4,6 @@ A beginner-friendly project that applies **Reinforcement Learning (RL)** to batt
 
 The project compares a **Safe RL agent** with a **Plain RL agent** and demonstrates how a simple rule-based **Safety Shield** can prevent unsafe battery actions while the RL agent learns to reduce electricity usage from the grid.
 
-Inspired by the research project [Webbah/safe-reinforcement-learing-for-microgrid-control](https://github.com/Webbah/safe-reinforcement-learing-for-microgrid-control), this implementation replaces the complex OpenModelica/FMUs and mathematical feasible-set calculations with a lightweight **pure-Python simulation**.
-
 ---
 
 ## 🚀 Project Overview
